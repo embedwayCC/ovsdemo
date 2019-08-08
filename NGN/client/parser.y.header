@@ -1,0 +1,113 @@
+%{
+
+#define YYERROR_VERBOSE
+#include <stdio.h>
+#include <limits.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <readline/readline.h>
+#include <readline/history.h>
+#include <stdlib.h>
+
+//#include "utils/log.h"
+
+#include "my_parser.h"
+#include "my_lexer.h"
+#include "appdefs.h"
+//#include "def.h"
+//#include "rpc_def.h"
+//#include "log_def.h"
+#include "app.h"
+#include "string_buf.h"
+#include "error_code.h"
+#include "look_up.h"
+#include "cli_trans.h"
+#include "exp_def.h"
+
+#define printPrompt()   do {                        \
+    if (load_config_end && !hy_is_interactive()) {  \
+        printf("\004%3d\n", EN);                    \
+    }                                               \
+    fflush(stdout);                                 \
+} while (0)
+
+#define printEnq(str)   do {                        \
+    if (hy_is_interactive()) {                      \
+        printf(str);                                \
+    } else {                                         \
+        printf("\005%s\n", str);                    \
+    }                                               \
+    fflush(stdout);                                 \
+} while (0)
+
+#define CHECK_SMP_VALID(slots, modules, ports) do {     \
+    if (slots == 0 || modules == 0 || ports == 0 || ports >= (1ull << MAX_PORT_NUMBER)) {     \
+        EN = OE_RST_INVLD_PRM;                          \
+        YYERROR;                                        \
+    }                                                   \
+} while (0)
+
+#define PROMPT(str)  "   " str
+
+#define help_print(str) __printf_buf("    %s",str)
+
+static int EN = 0;
+
+int end_of_line = 0;
+int load_config_end = 0;
+int g_my_slot;
+
+#if 0
+static int g_log_level_mask_init = 0;
+extern struct log_api g_log;
+extern int g_load_file_flag;
+struct ip_addr_t g_ip_addr;
+struct outports_id_list_t g_hash_list;
+struct outports_id_list_t g_mirror_list;
+olp_property_t g_olp_property;
+#endif
+char g_description[128];
+char g_name[128];
+
+string_buf g_sb;
+int in_list = 0;
+int in_map = 0;
+int in_pair = 0;
+int int_key = 0;
+unsigned long long slot_mask  = 0x3fff;
+int opcode = 0;
+
+#if 0
+extern struct oe_login_info_t g_login_info;
+#endif
+
+int yyerror(char const *s)
+{
+    EN = OE_RST_SYNTAX_ERR;
+
+//TODO by caicai
+#if 0
+    if (is_master_om_board() != 0)  
+        return 0;
+
+    if(NULL==s)
+    {
+        __printf_buf("\n");
+        __printf_rv(EN);
+        return 0;    
+    }
+
+    __printf_buf("%s\n", s);
+    __printf_rv(EN);
+#else
+	fprintf(stderr, "%s\n", s);
+#endif
+    return 0;
+}
+
+static void cli_reset_command(void);
+
+
+%}
+

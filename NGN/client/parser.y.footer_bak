@@ -1,0 +1,1298 @@
+
+%union {
+    char *sptr;
+    void *vptr;
+    unsigned int ipaddr;
+    unsigned short ipv6addr[8];
+    unsigned long long ival;
+    unsigned long long _smp_[3];
+    unsigned long long _sm_[2];
+    unsigned long long _mp_[2];
+    unsigned char mac[6];
+    char time[12];
+} 
+
+%token <ival> _INT_
+%token <sptr> _NAME_ _STRING_ _URL_ _PWD_STRING_
+%token <ipaddr> _IPADDR_
+%token <ipv6addr> _IPV6ADDR_
+%token <_smp_> _SMP_
+%token <_sm_> _SM_ 
+%token <_mp_> _MP_ 
+%token <mac> _MAC_
+%token <time> _TIME_FORMAT_
+
+%type <ival> command infocmds ifcmds trunkcmds l2cmds rulecmds syscmds helpcmds snmpcmds logcmds vermgrcmds olpcmds
+
+%type <ival> able agingtime 
+%type <ival> ce ce_dip ce_dmac ce_dport ce_ethertype ce_protocol ce_sip ce_smac ce_sport ce_tcpflag class_entry ce_innervlan ce_userdata ce_range_outervlan ce_range_l3packetlen
+%type <ival> duplex
+%type <ival> entry_id
+%type <ival> fpga_type
+%type <ival> hash_outports_id_attr hash_outports_id_list
+%type <ival> ip inports_id if_type
+%type <ival> log_enable log_config log_show log_enable_level log_level log_lines link_protect_type link_protect_types
+%type <ival> onoff olp_propertys olp_property olp_device op_mode outports_id outports_type
+%type <ival> platform psc pwd_str
+%type <ival> rule_id rxtx_mode
+%type <ival> shutdown slot_id snmp_op snmp_param snmp_auth_type snmp_priv_type snmp_access slot_info description sys_name
+%type <ival> tcpflag tcpflags trap_type
+%type <ival> ud_id ud_mode ud_offset
+%type <ival> verbose vlan_id vlan_action vlan_mask
+%type <ival> ip_addr mask 
+%type <ival> quiet 
+
+%type <vptr> mac_addr smp olpid 
+
+%left ':'
+%left '-'
+%left ','
+%left '/'
+
+%%
+input:
+    |  input line
+    {
+        if (end_of_line) {
+            printPrompt();
+        }
+    }
+    ;
+
+line:
+    EOS
+    {
+        cli_reset_command();
+    }
+    |  command
+    {
+        cli_reset_command();
+    }
+    | error EOS
+    {
+        cli_reset_command();
+        yyerrok;
+        EN = -1;
+    }
+    ;
+
+command:
+    infocmds
+    |   ifcmds
+    |   trunkcmds
+    |   l2cmds
+    |   rulecmds
+    |   syscmds
+    |   helpcmds
+    |   snmpcmds
+    |   logcmds
+    |   vermgrcmds
+    |   olpcmds
+    |   EXIT EOS
+    {
+        YYACCEPT;
+    }
+    ;
+
+
+infocmds:
+  ;
+    
+ifcmds:
+	SHOW INTERFACE smp STATUS EOS
+	{
+		opcode=22;
+        close_json();
+		EN = process_msg(&g_sb, slot_mask, opcode);
+	}
+
+;
+
+trunkcmds:
+;
+
+vlan_id:
+    _INT_
+    {
+        if ($1 < 2 || $1 >= 4096) {
+            EN = OE_RST_INVLD_PRM;
+            YYERROR;
+        }
+        $$ = $1;
+    }
+
+vlan_mask:
+    _INT_
+    {
+         if ($1 < 0 || $1 >= 4096) {
+            EN = OE_RST_INVLD_PRM;
+            YYERROR;
+        }
+        $$ = $1;
+    }
+
+vlan_action:
+    RESERVE
+    {
+        $$ = E_OUTERVLAN_RESERVE;
+    }
+    |   REPLACE
+    {
+        $$ = E_OUTERVLAN_REPLACE;
+    }
+
+inports_id:
+    _INT_
+    {
+        if($1 < 1 || $1 > MAX_INPORTS_ID - 1)
+        {
+            EN = OE_RST_INVLD_PRM;
+            YYERROR;
+        }
+        else
+            $$ = $1;
+    }
+    ;
+    
+outports_type:
+    HASH
+    {
+        $$=OUTPORT_HASH;
+    }
+    | MC
+    {
+        $$=OUTPORT_MC;
+    }
+
+outports_id:
+    _INT_
+    {
+        if($1 < 1 || $1 > MAX_OUTPORTS_ID - 1)
+        {
+            EN = OE_RST_INVLD_PRM;
+            YYERROR;
+        }
+        else
+            $$ = $1;
+    }
+    ;
+ 
+l2cmds:
+;
+
+rulecmds:
+;
+
+syscmds:
+    RESET SYSTEM quiet EOS
+    {
+		convert_val_to_json($3);
+        close_json();
+		opcode=1;
+		EN = process_msg(&g_sb, slot_mask, opcode);
+    }
+    |   SET PLATFORM slot_id platform EOS
+    {
+		slot_mask = (1 << ($3 - 1));
+		convert_val_to_json($3);
+		convert_val_to_json($4);
+        close_json();
+		opcode=7;
+		EN = process_msg(&g_sb, slot_mask, opcode);
+    }
+
+    ;
+
+helpcmds:
+    ;
+
+snmpcmds:
+    ;
+
+logcmds:
+    ;
+
+vermgrcmds:
+    ;
+
+op_mode:
+    FR_16XE_FB_11QXE_2DXE
+    {
+        $$ = 1;
+    }
+    |   FR_20XE_FB_9QXE_4DXE
+    {
+        $$ = 0;
+    }
+    |   FR_24XE_FB_8QXE_4DXE
+    {
+        $$ = 2;
+    }
+
+olpcmds:
+    ;
+
+slot_info:
+    {
+        $$ = 0;
+    }
+    |   SLOT _INT_
+    {
+        if ($2 != g_my_slot) {
+            YYERROR;
+        }
+        $$ = $2;
+    }
+    ;
+
+olpid:
+    _INT_'-'_INT_
+    {
+        olp_id_t *olp_id = calloc(1, sizeof(olp_id_t));
+        if (olp_id == NULL) {
+            EN = OE_RST_NO_MEM;
+            YYERROR;
+        }
+        olp_id->dev_id = $1;
+        olp_id->link_id = $3;
+        $$ = olp_id;
+    }
+    ;
+
+
+olp_propertys:
+    olp_property
+    {
+    }
+    |   olp_property olp_propertys
+    {
+    }
+    ;
+
+olp_property:
+    NAME '=' _STRING_
+    {
+        if (strlen($3) >= 128) {
+			EN = OE_RST_INVLD_PRM;
+            YYERROR;
+        }
+        memcpy(g_olp_property.name, $3, strlen($3));
+    }
+    |   DEVICE '=' olp_device
+    {
+        g_olp_property.device = $3;   
+    }
+    |   IP '=' _IPADDR_
+    {
+        g_olp_property.ip = $3;
+    }
+    |   PORT '=' _INT_
+    {
+        g_olp_property.port = $3;
+    }
+    ;
+
+olp_device:
+    _INT_
+    {
+        $$ = $1;
+    }
+    ;
+
+description:
+   _STRING_
+    {
+        if (strlen($1) >= 128) {
+                       EN = OE_RST_INVLD_PRM;
+            YYERROR;
+        }
+        memcpy(g_description, $1, strlen($1));
+    }
+    ;
+
+sys_name:
+   _STRING_
+    {
+        if (strlen($1) >= 128 || strlen($1) < 4) {
+                       EN = OE_RST_INVLD_PRM;
+            YYERROR;
+        }
+        memcpy(g_name, $1, strlen($1));
+    }
+    ;          
+ 
+link_protect_types:
+    link_protect_type
+    {
+        $$ = $1;
+    }
+    |   link_protect_type','link_protect_types
+    {
+        $$ = $1|$3;
+    }
+    ;
+
+link_protect_type:
+    {
+        $$ = E_LINK_PROTECT_CHECK_ALL_MASK & (~E_LINK_PROTECT_OPTPOWER_CHECK_MASK);
+    }
+    |   RX
+    {
+        $$ = E_LINK_PROTECT_RX_CNT_CHECK_MASK;
+    }
+    |   TX
+    {
+        $$ = E_LINK_PROTECT_TX_CNT_CHECK_MASK;
+    }
+    |   RX_FCS
+    {
+        $$ = E_LINK_PROTECT_RX_FCS_CNT_CHECK_MASK;
+    }
+    |   TX_FCS
+    {
+        $$ = E_LINK_PROTECT_TX_FCS_CNT_CHECK_MASK;
+    }
+    |   ALL
+    {
+        $$ = E_LINK_PROTECT_CHECK_ALL_MASK;
+    }
+    |   TRAFFIC
+    {
+        $$ = E_LINK_PROTECT_RX_CNT_CHECK_MASK | E_LINK_PROTECT_TX_CNT_CHECK_MASK;
+    }
+    |   LINK
+    {
+        $$ = E_LINK_PROTECT_LINK_STAT_CHECK_MASK;
+    }
+    |   FCS
+    {
+        $$ = E_LINK_PROTECT_RX_FCS_CNT_CHECK_MASK | E_LINK_PROTECT_TX_FCS_CNT_CHECK_MASK;
+    }
+    ;
+
+snmp_op:
+    START
+    {
+        $$ = SNMP_START;
+    }
+    | RESTART
+    {
+        $$ = SNMP_RESTART;
+    }
+    | STOP
+    {
+        $$ = SNMP_STOP;
+    }
+    | RESTORE CONFIGURATION
+    {
+                $$ = SNMP_RESTORE;
+        }
+    ;   
+
+snmp_param:
+    SYSNAME
+    {
+        $$ = SNMP_SYSNAME;
+    }
+    | SYSCONTACT
+    {
+        $$ = SNMP_SYSCONTACT;
+    }
+    | SYSLOCATION
+    {
+        $$ = SNMP_SYSLOCATION;
+    }
+    | ROCOMMUNITY
+    {
+        $$ = SNMP_ROCOMMUNITY;
+    }
+    | RWCOMMUNITY
+    {
+        $$ = SNMP_RWCOMMUNITY;
+    }
+    | TRAP VERSION
+    {
+        $$ = SNMP_TRAP_VERSION;
+    }
+    | USERNAME
+    {
+        $$ = SNMP_USERNAME;
+    }
+    | AUTH PASSWORD
+    {
+        $$ = SNMP_AUTH_PASSWD;
+    }
+    | PRIV PASSWORD
+    {
+        $$ = SNMP_PRIV_PASSWD;
+    }
+    ;
+
+snmp_auth_type:
+    MD5
+    {
+        $$ = 0;
+    }
+    | SHA
+    {
+        $$ = 1;
+    }
+    ;
+
+snmp_priv_type:
+    DES
+    {
+        $$ = 0;
+    }
+    | AES
+    {
+        $$ = 1;
+    }
+    ;
+
+snmp_access:
+    NOAUTH
+    {
+        $$ = 0;
+    }
+    | AUTH
+    {
+        $$ = 1;
+    }
+    | PRIV
+    {
+        $$ = 2;
+    }
+    ;
+
+smp:
+    _SMP_
+    {
+		g_my_slot = 1 + OeAp_Get_My_Slot_Id();
+        if (OeAp_Get_Platform() == PLATFORM_S40 && $1[0] != 1 << (g_my_slot - 1)) {
+            fprintf(stderr,"Invalid input. Please input right slot_id :%d\n", g_my_slot);
+            EN = OE_RST_INVLD_PRM;
+			_oe_error(EN);
+            YYERROR;
+        }
+        CHECK_SMP_VALID($1[0], $1[1], $1[2]);
+		slot_mask = $1[0];
+		convert_val_to_json($1[0]);
+		convert_val_to_json($1[1]);
+		convert_val_to_json($1[2]);
+        $$ = $1;
+    }
+    |   _MP_
+    {
+		g_my_slot = 1 + OeAp_Get_My_Slot_Id();
+        if (OeAp_Get_Platform() == PLATFORM_S320) {
+            fprintf(stderr,"Invalid input.\n");
+            EN = OE_RST_INVLD_PRM;
+			_oe_error(EN);
+            YYERROR;
+        }
+        CHECK_SMP_VALID(1 << (g_my_slot - 1), $1[0], $1[1]);
+		slot_mask = $1[0];
+		convert_val_to_json($1[0]);
+		convert_val_to_json($1[1]);
+		convert_val_to_json($1[2]);
+        close_json();
+        
+		$$ = $1;
+    }
+    ;
+
+psc:
+    DIP
+    {
+        $$ = TRUNK_LOAD_BALANCE_DSTIP;
+    }
+    |   DMAC
+    {
+        $$ = TRUNK_LOAD_BALANCE_DSTMAC;
+    }
+    |   SIP
+    {
+        $$ = TRUNK_LOAD_BALANCE_SRCIP;
+    }
+    |   SMAC
+    {
+        $$ = TRUNK_LOAD_BALANCE_SRCMAC;
+    }
+    |   IP
+    {
+        $$ = TRUNK_LOAD_BALANCE_SRCDSTIP;
+    }
+    |   MAC
+    {
+        $$ = TRUNK_LOAD_BALANCE_SRCDSTMAC;
+    }
+    ;
+    
+ip_addr:
+    _IPADDR_
+    {
+        if ((0 == $1) || (0xffffffff == $1)) {
+            EN = OE_RST_INVLD_PRM; 
+            YYERROR;
+        }
+        
+        $$ = $1;
+    }
+    ;
+    
+mask:
+    _IPADDR_
+    {
+        $$ = $1;
+    }
+    ;
+
+trap_type:
+    INTERFACE FCS
+    {
+	$$ = TRAP_TYPE_FCS;
+    }
+    |INTERFACE DROP
+    {
+	$$ = TRAP_TYPE_DROP;
+    }
+    |	CPU OVERLOAD
+    {
+	$$ = TRAP_TYPE_CPU;
+    }
+    |	MEMORY OVERLOAD
+    {
+	$$ = TRAP_TYPE_MEM;
+    };
+    
+onoff:
+    ON
+    {
+        $$ = 1;
+    }
+    |   OFF
+    {
+        $$ = 0;
+    }
+    ;
+    
+mac_addr:
+    _MAC_
+    {
+        unsigned char *tmp_mac = malloc(sizeof(unsigned char) * 6);
+        if (tmp_mac == NULL) {
+            EN = OE_RST_NO_MEM;
+            YYERROR;
+        }
+        memset(tmp_mac, 0, sizeof(unsigned char) * 6);
+        memcpy(tmp_mac, $1, 6);
+        
+        $$ = tmp_mac;
+    }
+    ;
+    
+agingtime:
+    _INT_
+    {
+        if ((0 != $1) && (($1 < L2_MAC_AGING_TIME_MIN) || ($1 > L2_MAC_AGING_TIME_MAX))) {
+            EN = OE_RST_INVLD_PRM; 
+            YYERROR;
+        }
+
+        $$ = $1;
+    }
+    ;
+
+able:
+    ENABLE
+    {
+        $$ = 1;
+    }
+    |   DISABLE
+    {
+        $$ = 0;
+    }
+    ;
+
+verbose:
+    {
+        $$ = 0;
+    }
+    |   VERBOSE
+    {
+        $$ = 1;
+    }
+    ;
+
+rule_id:
+    _INT_
+    {
+        if ($1 < 1 || $1 > DEFAULT_ACLS_NUMBER) {
+            EN = OE_RST_INVLD_PRM; 
+            YYERROR;            
+        }     
+        $$ = $1;
+    }
+    ;
+
+entry_id:
+	_INT_
+	{
+        g_class_entry.entry_index = $1;
+    }
+
+duplex:
+    FULL
+    {
+        $$ = 0;
+    }
+    |   HALF
+    {
+        $$ = 1;
+    }
+    ;
+
+hash_outports_id_attr:
+    outports_id
+    {
+        g_hash_list.list[g_hash_list.num++] = $1;
+    }
+    |   outports_id'-'outports_id
+    {
+        int i;
+        for (i = $1; i <= $3; i++) {
+            g_hash_list.list[g_hash_list.num++] = i;
+        }
+    }
+
+hash_outports_id_list:
+    hash_outports_id_attr
+    {
+    }
+    |   hash_outports_id_attr','hash_outports_id_list
+    {
+    }
+    ;
+    
+class_entry:
+    ce
+    {
+
+    }
+    |   class_entry ce
+    {
+
+    }
+    ;
+
+ce:
+    ce_protocol
+    |   ce_ethertype
+    |   ce_sip
+    |   ce_dip
+    |   ce_sport
+    |   ce_dport
+    |   ce_smac
+    |   ce_dmac
+    |   ce_tcpflag
+    |   ce_userdata
+    |   ce_innervlan
+    |   ce_range_outervlan
+    |   ce_range_l3packetlen
+    {
+
+    }
+    ;
+
+ce_protocol:
+    PROTOCOL '=' TCP
+    {
+        g_class_entry.key_mask |= OE_KEY_MASK_PROTOCOL;
+
+        g_class_entry.protocol = 0x06;
+    }
+    |   PROTOCOL '=' UDP
+    {
+        g_class_entry.key_mask |= OE_KEY_MASK_PROTOCOL;
+
+        g_class_entry.protocol = 0x11;
+    }
+    |   PROTOCOL '=' ICMP
+    {
+        g_class_entry.key_mask |= OE_KEY_MASK_PROTOCOL;
+
+        g_class_entry.protocol = 0x01;
+    }
+    |   PROTOCOL '=' _INT_
+    {
+        if ($3 < 0 || $3 > 255) {
+            EN = OE_RST_INVLD_PRM;
+            YYERROR;
+        }
+    
+        g_class_entry.key_mask |= OE_KEY_MASK_PROTOCOL;
+
+        g_class_entry.protocol = $3;
+    }
+    ;
+       
+ce_ethertype:
+    ETHERTYPE '=' _INT_
+    {
+        g_class_entry.ethertype = $3;
+        g_class_entry.key_mask |= OE_KEY_MASK_ETHERTYPE;
+    }
+    ;
+ 
+ce_sip:
+    SIP '=' ip
+    {
+        g_class_entry.key_mask |= OE_KEY_MASK_SIP;
+
+        g_class_entry.sip = $3;
+        g_class_entry.sip_mask = 0xffffffff;
+    }
+    |   SIP '=' ip '/' ip
+    {
+        g_class_entry.key_mask |= OE_KEY_MASK_SIP;
+
+        g_class_entry.sip = $3;
+        g_class_entry.sip_mask = $5;
+    }
+    |   SIP '=' _IPV6ADDR_
+    {    
+        g_class_entry.key_mask |= OE_KEY_MASK_SIPV6;
+        memcpy(g_class_entry.sipv6, $3, sizeof(g_class_entry.sipv6));
+        memset(g_class_entry.sipv6_mask, 0xff, sizeof(g_class_entry.sipv6));
+    }    
+    |   SIP '=' _IPV6ADDR_ '/' _IPV6ADDR_
+    {    
+        g_class_entry.key_mask |= OE_KEY_MASK_SIPV6;
+        memcpy(g_class_entry.sipv6, $3, sizeof(g_class_entry.sipv6));
+        memcpy(g_class_entry.sipv6_mask, $5, sizeof(g_class_entry.sipv6_mask));
+    } 
+    ;
+
+ce_dip:
+    ;
+
+ce_sport:
+    ;
+
+ce_dport:
+    ;
+
+ce_smac:
+    ;
+
+ce_dmac:
+    ;
+
+ce_tcpflag:
+    TCPFLAG '=' tcpflags
+    {
+    }
+    ;
+ 
+ tcpflag:
+    FIN
+    {
+    }
+    |    SYN
+    {
+    }
+    |    RST
+    {
+    }
+    |    PSH
+    {
+    }
+    |    ACK
+    {
+    }
+    |    URG
+    {
+    }
+    |    '!' FIN
+    {
+    }
+    |    '!' SYN
+    {
+    }
+    |    '!' RST
+    {
+    }
+    |    '!' PSH
+    {
+    }
+    |    '!' ACK
+    {
+    }
+    |    '!' URG
+    {
+    }
+    ;
+
+tcpflags:
+    tcpflag
+    |    tcpflags ',' tcpflag
+    ;
+
+
+ce_innervlan:
+	INNERVLAN '=' _INT_
+    {
+    }
+	|   INNERVLAN '=' _INT_ '/' _INT_
+	{
+        $$=6;
+    }
+    |   UD7
+    {
+        $$=7;
+    }
+    ;
+
+ud_id:
+    UD0
+    {
+        $$=0;
+    }
+    |   UD1
+    {
+        $$=1;
+    }
+    |   UD2
+    {
+        $$=2;
+    }
+    |   UD3
+    {
+        $$=3;
+    }
+    |   UD4
+    {
+        $$=4;
+    }
+    |   UD5
+    {
+        $$=5;
+    }
+    |   UD6
+    {
+        $$=6;
+    }
+    |   UD7
+    {
+        $$=7;
+    }
+    ;
+
+
+ce_userdata:
+    ud_id '=' _INT_ '/' _INT_
+    {
+    }
+    ;
+
+ce_range_outervlan:
+    ;
+
+ce_range_l3packetlen:
+    ;
+
+ud_mode:
+    HEAD
+    {
+        $$ = UD_TYPE_HEAD;
+    }
+    |   L3
+    {
+        $$ = UD_TYPE_L3;
+    }
+    |   L4
+    {
+        $$ = UD_TYPE_L4;
+    }
+    ;
+
+ud_offset:
+    _INT_
+    {
+        $$ = $1;
+    }
+    ;
+
+if_type:
+    NORMAL
+    {
+        $$ = 0;
+    }
+    |   LOOPBACK
+    {
+        $$ = 1;
+    }
+
+ip:
+    _IPADDR_
+    {
+        $$ = $1;
+    }
+    ;
+
+shutdown:
+    SHUTDOWN
+    {
+        $$ = 1;
+    }
+    |   NO_SHUTDOWN
+    {
+        $$ = 0;
+    }
+    ;
+
+slot_id:
+    _INT_
+    {
+        if (($1 < 1) || ($1 > SLOT_NUMBER_PER_SYSTEM)) {
+            fprintf(stderr,"slot id should be from 1 to %d.\n", SLOT_NUMBER_PER_SYSTEM);
+            EN = OE_RST_INVLD_PRM; 
+			_oe_error(EN);
+            YYERROR;
+        }
+
+        $$ = $1;
+    }
+
+    ;
+
+platform:
+    S320
+    {
+        $$ = PLATFORM_S320;
+    }
+    |   S40
+    {
+        $$ = PLATFORM_S40;
+    }
+    |   ST
+    {
+        $$ = PLATFORM_S40;
+    }
+    |   OM
+    {
+        $$ = PLATFORM_S320;
+    }
+    ;
+
+log_enable:
+    log_enable_level
+    {
+        $$ = $1;
+    }
+    |   '|' log_enable_level
+    {
+        $$ = $2;
+    }
+    |   log_enable_level '|' log_enable
+    {
+        $$ = $1 | $3;
+    }
+    ;
+
+log_enable_level:
+    RULE 
+    {
+        $$ = EMS_LOG_LEVEL_RULE;
+    }
+    |  INFO
+    {
+        $$ = EMS_LOG_LEVEL_INFO;
+    }
+    |  ERROR
+    {
+        $$ = EMS_LOG_LEVEL_ERROR;
+    }
+    |   WARN
+    {
+        $$ = EMS_LOG_LEVEL_WARN;
+    }
+    |  ALL
+    {
+        $$ = EMS_LOG_LEVEL_RULE|EMS_LOG_LEVEL_INFO|EMS_LOG_LEVEL_ERROR|EMS_LOG_LEVEL_WARN;
+    }
+    ;
+
+log_config:
+    ;
+
+log_lines:
+    {
+        $$ = LOG_DEFAULT_PRINT_LINE;
+    }
+    |  _INT_
+    {
+        if ($1 < 0 || $1 > 0x7fffffff) {
+            EN = OE_RST_INVLD_PRM;
+            YYERROR;
+        }
+        $$ = $1;
+    }
+    ;
+
+log_level:
+    RULE
+    {
+        $$ = EMS_LOG_LEVEL_RULE;
+    }
+    |  INFO
+    {
+        $$ = EMS_LOG_LEVEL_INFO;
+    }
+    |  ERROR
+    {
+        $$ = EMS_LOG_LEVEL_ERROR;
+    }
+    |  TRACE
+    {
+        $$ = EMS_LOG_LEVEL_TRACE;
+    }
+    |   WARN
+    {
+        $$ = EMS_LOG_LEVEL_WARN;
+    }
+    ;
+
+log_show:
+    ;
+
+quiet:
+    {
+        $$ = 0;
+    }
+    |    QUIET
+    {
+        $$ = 1;
+    }
+    ;
+
+rxtx_mode:
+    RECEIVE
+    {
+        $$ = 0;
+    }
+    | TRANSCEIVING
+    {
+        $$ = 1;
+    };
+
+pwd_str:
+	_STRING_
+	{
+		$$=$1;
+	}
+	| _PWD_STRING_
+	{
+		$$=$1;
+	};
+	
+fpga_type:
+    AB
+    {
+        $$ = 1;
+    }
+    | A9
+    {
+        $$ = 2;
+    };
+
+%%
+
+
+static void cli_reset_command(void)
+{
+    clear_name_table();
+#if 0
+    memset(&g_olp_property, 0, sizeof(olp_property_t));
+    memset(&g_hash_list, 0, sizeof(struct outports_id_list_t));
+    memset(&g_mirror_list, 0, sizeof(struct outports_id_list_t));
+#endif
+    memset(g_description, 0, sizeof(g_description));
+    memset(g_name,0,sizeof(g_name));    
+	memset(&g_sb,0,sizeof(string_buf));
+	in_list = 0;
+	in_map = 0;
+	in_pair = 0;
+	int_key = 0;
+
+}
+
+int start_cli_cmd(char *cmd)
+{
+    int rv = 0;
+    hy_switch_to_buffer(cmd);
+    rv = yyparse();
+    hy_delete_buffer();
+    return rv;
+}
+
+int start_cli_parser(char *cmd, FILE *fp)
+{
+    int rv = 0;
+
+    if (fp) {
+        hy_switch_to_file(fp);
+        rv = yyparse();
+        fclose(fp);
+        hy_delete_buffer();
+        return rv;
+    }
+
+    if(cmd) {
+        hy_switch_to_buffer(cmd);
+        rv = yyparse();
+        //free(cmd);
+        hy_delete_buffer();
+        return rv;
+    }
+
+    //rl_variable_bind("disable-completion", "On");
+    using_history();
+    stifle_history(20);
+
+    printf("Optiway %s Software\nCopyright (C) 2013, Embedway Co., Ltd.\n", (OeAp_Get_Platform() == PLATFORM_S320)?"S320":"S40");
+    //printf("\nLBSwitch Software\nCopyright (C) 2013, Chanct Inc.\n");
+
+    hy_switch_to_file(stdin);
+    printPrompt();
+    yyparse();
+    hy_delete_buffer();
+
+    return 0;
+}
+
+int convert_val_to_json(int value)
+{
+	char val[128];
+	int l = 0;
+
+	if(g_sb.buf_size == 0){
+		string_buf_init(&g_sb,128);
+	}
+
+	sprintf(val,"%d",value);
+	l = strlen(val);
+
+    if ( in_list == 0 ) {
+        string_buf_puts(&g_sb, "[", 1 );
+		in_list = 1;
+    }
+    else {
+        if ( !in_pair ) string_buf_puts(&g_sb, ",", 1 );
+    }
+	
+	string_buf_puts_format(&g_sb, "%.*s", l, val);
+
+	in_pair=0;
+	int_key = 0;
+
+	return 0;
+}
+
+int convert_spec_str_to_json(char *val)
+{
+	int l = 0;
+	l = strlen(val);
+	
+	if(g_sb.buf_size == 0){
+		string_buf_init(&g_sb,128);
+	}
+
+    if ( in_list == 0 ) {
+        string_buf_puts(&g_sb, "[", 1 );
+		in_list = 1;
+    }
+    else {
+        if ( !in_pair ) string_buf_puts(&g_sb, ",", 1 );
+    }
+	
+	string_buf_puts_format(&g_sb, "\"%.*s\"", l, val);
+
+	in_pair=0;
+	int_key = 0;
+	
+	return 0;
+}
+
+int convert_key_to_json(char *val)
+{
+	int l = 0;
+	l = strlen(val);
+	
+	if(g_sb.buf_size == 0){
+		string_buf_init(&g_sb,128);
+	}
+
+    if ( in_list == 0 ) {
+        string_buf_puts(&g_sb, "[", 1 );
+		in_list = 1;
+    }
+    else {
+        if ( !in_pair ) string_buf_puts(&g_sb, ",", 1 );
+    }
+	
+    if( in_map == 0 ) {
+		string_buf_puts(&g_sb, "{", 1 );
+        in_map = 1;
+    }
+
+	int_key = get_int2_key(val,l);
+	if(int_key > 0){
+		string_buf_puts_format(&g_sb, "%d:", int_key );
+	}else{
+		string_buf_puts_format(&g_sb, "%.*s:", l, val);
+	}
+    in_pair=1;
+	
+	return 0;
+}
+
+int convert_spec_key_to_json(char *val)
+{
+	int l = 0;
+	l = strlen(val);
+	if(g_sb.buf_size == 0){
+		string_buf_init(&g_sb,128);
+	}
+
+    if ( in_list == 0 ) {
+        string_buf_puts(&g_sb, "[", 1 );
+		in_list = 1;
+    }
+    else {
+        if ( !in_pair ) string_buf_puts(&g_sb, ",", 1 );
+    }
+
+	if( in_map == 0 ) {
+		string_buf_puts(&g_sb, "{", 1 );
+        in_map = 1;
+    }
+	string_buf_puts_format(&g_sb, "\"%.*s\":", l, val);
+    in_pair=1;
+
+	
+	return 0;
+}
+
+int close_json()
+{
+    if ( in_map ) {
+		string_buf_puts(&g_sb, "}", 1 );
+    }
+    if ( in_list ) {
+		string_buf_puts(&g_sb, "]", 1 );
+    }
+	
+	return 0;
+}

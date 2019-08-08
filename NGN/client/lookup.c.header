@@ -1,0 +1,12 @@
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "parser.tab.h"
+
+typedef struct {
+	char *name;
+	int token;
+	unsigned match_len;
+} token_ent;
+

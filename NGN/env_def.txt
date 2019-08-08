@@ -1,0 +1,13 @@
+if(PF STREQUAL "x86")
+add_definitions("-D_PLATFORM_X86_UBUNTU_ -DLINUX -D_GNU_SOURCE")
+else()
+set(CMAKE_C_FLAGS "-Wall -fno-builtin -funroll-loops -mlong-calls -mips3 -mgp64 -mfp64  -G 0 ")
+
+add_definitions(" -DDEBUG -DLinux -DOS_TARGET=Linux -DOS_TARGET_RELEASE=2
+        -DCPU=MIPS64 -D_linux -DMIPS64_CPU -DCPU_BE -D__WORDSIZE=64
+        -DEMBEDDED -DLINUX -DUNIX -mlong-calls -non_shared -DCHX_FAMILY
+        -DIMPL_BRIDGE -DIMPL_MIRROR -DIMPL_NETIF -DIMPL_PCL -DIMPL_PHY
+        -DIMPL_I2C -DIMPL_POLICER -DIMPL_PORT -DIMPL_TRUNK -DIMPL_TUNNEL
+        -DIMPL_IP -DIMPL_GALTIS -DCH3_FAMILY -DCHX_FAMILY -DENV_MAINCMD
+        -DGT_PCI -DGT_SMI -DIMPL_PP -DINCL_EXDXMX_DRIVER -D_GNU_SOURCE")
+endif()
